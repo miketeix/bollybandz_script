@@ -1,22 +1,30 @@
-import {version, bitget} from 'ccxt';
+import {version, binance} from 'ccxt';
 import ta from 'ta.js';
 
 const day = 86400000;
 const timeframeConversionMap = { // timeframe to milliseconds
     '5m': day/288, 
     '15m': day/96,
+    '30m': day/48,
     '1h': day/24,
+    '2h': day/12,
     '4h': day/8,
+    '12h': day/2,
     '1d': day,
+    '3d': day*3,
     '1w': day*7,
 }
 
 const timeframeRecencyWindowMap = {
-    '5m': 4, 
-    '15m': 2,
-    '1h': 2,
-    '4h': 1,
+    '5m': 7, 
+    '15m': 5,
+    '30m': 3,
+    '1h': 4,
+    '2h': 2,
+    '4h': 2,
+    '12h': 1,
     '1d': 1,
+    '3d': 1,
     '1w': 1,
 }
 
@@ -36,14 +44,28 @@ async function fetchCandles(exchange, symbol, timeframe) {
 }
 
 async function main() {
-    const exchange = new bitget()
+    const exchange = new binance()
     await exchange.loadMarkets()
     // exchange.verbose = true // uncomment for debugging purposes if necessary
     const symbols = [
         'BTC/USDT',
-        'LINK/USDT'
+        'ETH/USDT',
+        'LINK/USDT',
+        'SOL/USDT',
+        'MKR/USDT',
+        'ARB/USDT',
+        'XRP/USDT',
+        'UNI/USDT',
+        'BNB/USDT',
+        'AAVE/USDT',
+        'DOGE/USDT',
+        'SHIB/USDT',
+        'FTM/USDT',
+        'SNX/USDT',
+        'ADA/USDT',
+        'BCH/USDT',    
     ]
-    const timeframes = ['5m','15m','1h','4h','1d','1w'];
+    const timeframes = ['5m', '15m', '30m', '1h', '2h', '4h', '12h', '1d', '3d', '1w'];
     var bandHorizon = 20;
     var bandDeviations = 2.3; 
 
