@@ -28,7 +28,7 @@ const timeframeRecencyWindowMap = {
     '1w': 1,
 }
 
-async function fetchCandles(exchange, symbol, timeframe) {
+async function fetchCandles(symbol, timeframe, exchange) {
     try {
         const timeframeInMillis = timeframeConversionMap[timeframe];
         const limit = 30;
@@ -36,9 +36,11 @@ async function fetchCandles(exchange, symbol, timeframe) {
 
         const candles = await exchange.fetchOHLCV(symbol, timeframe, since, limit);
         console.log (exchange.iso8601 (exchange.milliseconds ()), exchange.id, symbol, timeframe, candles.length, 'OHLCV candles received')
-        return candles
+
+        return [candles, symbol, timeframe];
     } catch (e) {
         console.log (exchange.iso8601 (exchange.milliseconds ()), exchange.id, symbol, e.constructor.name, e.message)
+        return [[], symbol, timeframe];
     }
     
 }
@@ -70,48 +72,45 @@ async function main() {
     var bandDeviations = 2.3; 
 
     const outlierSummary = {};
+    const fetchCandlePromises = []
     for (let symbol of symbols) {
         for (let timeframe of timeframes) {
-            const candles = await fetchCandles(exchange, symbol, timeframe);
-            if (candles.length) {
-                const closingValues = candles.map(([ts, open, high, low, close]) => close)
-                const bollingerValues = ta.bands(closingValues, bandHorizon, bandDeviations);
-                const recencyWindow = timeframeRecencyWindowMap[timeframe];
-                const lastBandValues = bollingerValues.slice(-recencyWindow);
-                const lastClosingValues = closingValues.slice(-recencyWindow);
-                // console.log('closingValues', closingValues, 'bollingerValues', bollingerValues, 'lastBandValues', lastBandValues, 'lastClosingValues', lastClosingValues)
-
-                const isOutsideRecentBand = lastBandValues.reduce((acc, [high, median, low], index) => {
-                    if ((lastClosingValues[index] > high) || (lastClosingValues[index] < low)) {
-                        return true;
-                    }
-                    return acc;
-                }, false);
-                
-                if (isOutsideRecentBand) {
-                    outlierSummary[symbol] = outlierSummary[symbol] ?  outlierSummary[symbol].concat(timeframe) :  [timeframe]
-                }
-            }
+            fetchCandlePromises.push(fetchCandles( symbol, timeframe, exchange))
         }    
     }
 
-    /**
+    const candleData = await Promise.all(fetchCandlePromises);
+    for (let [candles, symbol, timeframe] of candleData) {
+        if (candles.length) {
+            const closingValues = candles.map(([ts, open, high, low, close]) => close)
+            const bollingerValues = ta.bands(closingValues, bandHorizon, bandDeviations);
+            const recencyWindow = timeframeRecencyWindowMap[timeframe];
+            const lastBandValues = bollingerValues.slice(-recencyWindow);
+            const lastClosingValues = closingValues.slice(-recencyWindow);
+
+            const isOutsideRecentBand = lastBandValues.reduce((acc, [high, median, low], index) => {
+                if ((lastClosingValues[index] > high) || (lastClosingValues[index] < low)) {
+                    return true;
+                }
+                return acc;
+            }, false);
+            
+            if (isOutsideRecentBand) {
+                outlierSummary[symbol] = outlierSummary[symbol] ?  outlierSummary[symbol].concat(timeframe) :  [timeframe]
+            }
+        }
+    }
+    
+    console.log('Outlier Summary', outlierSummary);
+    return outlierSummary
+     /**
      *   
      * {
-            'BTC/USDT': {
-                '5m': {
-                    side: 'upper',
-                    recency: 1
-                },
-                '1h': 'lower'
-            }
+            'BTC/USDT': ['5m']
         }
      * 
      */
   
-
-    console.log('Outlier Summary', outlierSummary);
-    
 }
 
 main()
